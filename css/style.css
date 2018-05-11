@@ -14,3 +14,8 @@ img {
     /* height: 64px;
     width: 64px; */
 }
+
+.goal-node {
+    background-image: url("../images/environment_02.png");
+    background-repeat: no-repeat;
+}

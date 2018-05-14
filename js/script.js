@@ -57,9 +57,6 @@ document.addEventListener('keydown', function(event){
 function setUpGame() {
     var board = document.getElementById('board');
     winElement = document.getElementById('level-clear');
-    winElement.style.display = 'none';
-
-    //console.log(map.width + " " + map.height);
 
     for (var i = 0; i < map.height; i++) {
         var row = board.insertRow(i);
@@ -180,9 +177,7 @@ function pushBlock(x, y, direction){
 
 function checkForGoal(x, y){
     var table = document.getElementById("table-board");
-    var cell = table.rows[x].cells[y];
-
-    //Check if the pushed block was moved off a goal tile cell    
+    var cell = table.rows[x].cells[y];   
     if(cell.classList.contains("goal-node")){
         goalTilesLeft--;
     }
@@ -190,11 +185,9 @@ function checkForGoal(x, y){
 
 function checkIfRemovedFromGoal(x, y){
     var table = document.getElementById("table-board");
-    var cell = table.rows[x].cells[y];
-
-    //Check if the pushed block was moved onto a goal tile cell    
+    var cell = table.rows[x].cells[y];  
     if(cell.classList.contains("goal-node")){
-        goalTilesLeft++
+        goalTilesLeft++;
     }
 }
 

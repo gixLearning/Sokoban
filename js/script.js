@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 class Player {
     constructor(x, y) {
@@ -12,10 +12,19 @@ Object.freeze(direction);
 
 var player;
 var destinationTileType;
-
 var map = tileMap;
+var goalTilesLeft = 0;
+var winElement;
+var gameEnded = false;
 
 document.addEventListener('keydown', function(event){
+    if(gameEnded){
+        return;
+    }
+    if([32, 37, 38, 39, 40].indexOf(event.keyCode) > -1) {
+        event.preventDefault();
+    }
+
     const key = event.key;
     var player = document.getElementById("player");
     var x, y;
@@ -47,8 +56,10 @@ document.addEventListener('keydown', function(event){
 
 function setUpGame() {
     var board = document.getElementById('board');
+    winElement = document.getElementById('level-clear');
+    winElement.style.display = 'none';
 
-    console.log(map.width + " " + map.height);
+    //console.log(map.width + " " + map.height);
 
     for (var i = 0; i < map.height; i++) {
         var row = board.insertRow(i);
@@ -60,6 +71,7 @@ function setUpGame() {
                 continue;
             } else if(tileType === "G"){
                 cell.classList.add('goal-node');
+                goalTilesLeft++;
             } 
             else {
                 cell.appendChild(paintBlock(tileType, direction.UP));
@@ -70,12 +82,16 @@ function setUpGame() {
             }
         }    
     }
-    populateData();
+    //populateClickData();
 }
 
-function moveToCell(x, y, direction){
+function moveToCell(x, y, direction){    
+
     var x1 = player.X + x;
-    var y1 = player.Y + y;    
+    var y1 = player.Y + y;
+    
+    var table = document.getElementById("table-board");
+    var cell = table.rows[x1].cells[y1]
     
     if(!checkWallCollision(x1, y1)){
         return;
@@ -85,64 +101,100 @@ function moveToCell(x, y, direction){
         return;        
     }
 
-    //console.log("New value: " + x1 + " " + y1)
-
     //Nothing is blocked, get on with it!    
     destinationTileType = map.mapGrid[x1][y1][0];
     if(destinationTileType === "B"){
-        console.log("PUSH BLOCK");
         pushBlock(x1, y1, direction);
     }    
 
-    var table = document.getElementById("table-board");
-    var cell = table.rows[x1].cells[y1]
-    //console.log(cell)
-    //console.log(map.mapGrid[x1][y1])
-
-    
-
-    //All checks passed, assign new values    
     player.X = x1;
     player.Y = y1;
-
     map.mapGrid[x1][y1][0] = "P";
 
-
-    //Paint all new tiles
     var tileType = map.mapGrid[x1][y1].toString();
     cell.appendChild(paintBlock(tileType, direction))
 
     //Check if the previous tile was a tile occupied by a player, if so, remove it
     if(map.mapGrid[x1 - x][y1 - y][0] === "P"){
         map.mapGrid[x1 - x][y1 - y][0] = ' '
-
         var oldCell = table.rows[x1 - x].cells[y1 - y];
-
         for (let index = 0; index < oldCell.childNodes.length; index++) {
-
             var element = oldCell.childNodes[index];
             if(element.getAttribute('id') == 'player'){
                 oldCell.removeChild(element);
             }                                 
         }
     }
+
+    if(goalTilesLeft == 0){
+        winElement.style.display = 'flex';
+        gameEnded = true;
+    }
+}
+
+function removeBlock(x, y){
+    var table = document.getElementById("table-board");
+    var cell = table.rows[x].cells[y];
+
+    for (let index = 0; index < cell.childNodes.length; index++) {
+        var element = cell.childNodes[index];
+        if(element.getAttribute('id') == 'B'){
+            cell.removeChild(element);
+        }                                 
+    }
 }
 
 function pushBlock(x, y, direction){
     var table = document.getElementById("table-board");    
-    var cell = table.rows[x].cells[y]
 
     if(direction == "LEFT"){
         map.mapGrid[x][y - 1][0] = "B";
-         
+        var cell = table.rows[x].cells[y - 1];
+        cell.appendChild(paintBlock("B", direction));        
+        checkForGoal(x, y - 1);
+        checkIfRemovedFromGoal(x, y);
     } 
     else if (direction == "RIGHT"){
-        map.mapGrid[x][y + 1][0] = "B";
+        map.mapGrid[x][y + 1][0] = "B";        
+        var cell = table.rows[x].cells[y + 1];
+        cell.appendChild(paintBlock("B", direction));    
+        checkForGoal(x, y + 1);
+        checkIfRemovedFromGoal(x, y); 
     }
     else if (direction == "UP"){
         map.mapGrid[x - 1][y][0] = "B";
+        var cell = table.rows[x - 1].cells[y];
+        cell.appendChild(paintBlock("B", direction))    
+        checkForGoal(x - 1, y);
+        checkIfRemovedFromGoal(x, y);
+        
     } else {
         map.mapGrid[x + 1][y][0] = "B";
+        var cell = table.rows[x + 1].cells[y];
+        cell.appendChild(paintBlock("B", direction))     
+        checkForGoal(x + 1, y);
+        checkIfRemovedFromGoal(x, y);
+    }
+    removeBlock(x, y);
+}
+
+function checkForGoal(x, y){
+    var table = document.getElementById("table-board");
+    var cell = table.rows[x].cells[y];
+
+    //Check if the pushed block was moved off a goal tile cell    
+    if(cell.classList.contains("goal-node")){
+        goalTilesLeft--;
+    }
+}
+
+function checkIfRemovedFromGoal(x, y){
+    var table = document.getElementById("table-board");
+    var cell = table.rows[x].cells[y];
+
+    //Check if the pushed block was moved onto a goal tile cell    
+    if(cell.classList.contains("goal-node")){
+        goalTilesLeft++
     }
 }
 
@@ -153,28 +205,24 @@ function checkBlockCollision(x, y, direction){
         switch (dir) {
             case "LEFT":
                 if(map.mapGrid[x][y - 1][0] === "B" || map.mapGrid[x][y - 1][0] === "W"){
-                    //console.log("BLOCKED BY " + map.mapGrid[x][y - 1][0])
                     return false;
                 }
                 break;
 
             case "RIGHT":
                 if(map.mapGrid[x][y + 1][0] === "B" || map.mapGrid[x][y + 1][0] === "W"){
-                    //console.log("BLOCKED BY " + map.mapGrid[x][y + 1][0])
                     return false;
                 }                         
                 break;
 
             case "UP":
                 if(map.mapGrid[x - 1][y][0] === "B" || map.mapGrid[x - 1][y][0] === "W"){
-                    //console.log("BLOCKED BY " + map.mapGrid[x - 1][y][0])
                     return false;
                 }
                 break;
 
             case "DOWN":
                 if(map.mapGrid[x + 1][y][0] === "B" || map.mapGrid[x + 1][y][0] === "W"){
-                    //console.log("BLOCKED BY " + map.mapGrid[x + 1][y][0])
                     return false;
                 }
                 break;
@@ -195,16 +243,19 @@ function checkWallCollision(x, y){
 }
 
 function paintBlock(blockChar, d) {    
-    var dir = d;    
+    var dir = d;   
+    var id = ""; 
 
     var imageSource;
     var isPlayerBlock = false;
     switch (blockChar) {
         case "W":
             imageSource = "block_08";
+            id = 'W';
             break;
         case "B":
             imageSource = "crate_06";
+            id = 'B';
             break;
         case "E":
             imageSource = "PlayerFace_dark"
@@ -235,27 +286,29 @@ function paintBlock(blockChar, d) {
     var img = document.createElement("img");
     img.setAttribute('src', 'images/' + imageSource + '.png');
     if(isPlayerBlock){
-        img.setAttribute('id', 'player')
+        id = 'player';        
     }
+
+    img.setAttribute('id', id)
     return img;        
 }
 
-function populateData() {
-    var table = document.getElementById("table-board");
-    var rIndex, cIndex;
+// function populateClickData() {
+//     var table = document.getElementById("table-board");
+//     var rIndex, cIndex;
 
-    for (var i = 0, row; row = table.rows[i]; i++) {
-        //iterate through rows
-        //rows would be accessed using the "row" variable assigned in the for loop
-        for (var j = 0, col; col = row.cells[j]; j++) {
-            //iterate through columns
-            //columns would be accessed using the "col" variable assigned in the for loop
-            table.rows[i].cells[j].onclick = function()
-            {
-                rIndex = this.parentElement.rowIndex;
-                cIndex = this.cellIndex //+1;
-                console.log("Row : "+rIndex+" , Cell : "+cIndex + " MAP: " + map.mapGrid[rIndex][cIndex][0]);
-            };
-        }  
-    }    
-}
+//     for (var i = 0, row; row = table.rows[i]; i++) {
+//         //iterate through rows
+//         //rows would be accessed using the "row" variable assigned in the for loop
+//         for (var j = 0, col; col = row.cells[j]; j++) {
+//             //iterate through columns
+//             //columns would be accessed using the "col" variable assigned in the for loop
+//             table.rows[i].cells[j].onclick = function()
+//             {
+//                 rIndex = this.parentElement.rowIndex;
+//                 cIndex = this.cellIndex //+1;
+//                 console.log("Row : "+rIndex+" , Cell : "+cIndex + " MAP: " + map.mapGrid[rIndex][cIndex][0]);
+//             };
+//         }  
+//     }    
+// }
